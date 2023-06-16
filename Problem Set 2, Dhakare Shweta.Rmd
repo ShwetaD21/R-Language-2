@@ -1,0 +1,146 @@
+
+---
+title: "Problem Set 2- MA 611 US Gasoline Prices"
+name: Shweta Dhakare
+output:
+  html_document:
+    df_print: paged
+date: "2023-03-05"
+---
+## Introduction:
+In this notebook we are conducting an analysis for the Monthly average of US Gasoline prices from January 2000 to December 2019. In the data set we have two variables month and price. 
+
+
+## Import Dataset
+
+```{r imp,message=FALSE,warning=FALSE,echo=FALSE}
+
+library(ggplot2)
+library(fpp2)
+
+GS = read.csv('http://www.lukecherveny.com/ma611spring23/data/regular_gas.csv')
+
+```
+Let's define a time series data frame for the price variable of the given data set
+```{r}
+
+price.gs<-ts(GS$price,frequency = 12,start = c(2000,1))
+```
+
+
+## Gasoline Price Plot
+Here we have generated a figure based on the data set, which indicates a noticeable increase in the price per gallon of gasoline from January 2000 to December 2019. There are some outliers in between 2008 to 2009 due to Economic Depression and then again in 2015 to 2017 due to oil crisis.
+```{r efdw,echo=FALSE,fig.align="center",out.width='80%'}
+autoplot(price.gs)+
+  ggtitle("US Gasoline Price from January 2000 to December 2019")+
+  ylab("Average Price per Gallon")
+```
+
+The following qualitative properties of the time series are observed:
+
+- **Trend:** It seems that the plot shows a linearly increasing trend each month..
+- **Level:** It seems that the mean number of monthly US gasoline prices has been shifting to a higher level each month over the course of a year, indicating a non-constant level.
+- **Outliers:** Some outliers can be observed..
+- **Seasonality:** It is possible that there is a seasonal pattern in the gasoline price, where prices tend to rise during the second quarter (April, May, and June) of every year and tend to fall during the fourth quarter (October, November, and December) of every year.
+
+
+## Investigation into trend and seasoanality of US Gasoline Price
+To analyze the dataset, the additive decomposition model was chosen, which is suitable for datasets with positive values where the seasonal effect tends to increase proportionally with the level. The model assumes that the seasonal values remain constant throughout the observed period.
+```{r ewfhe44, echo=FALSE,fig.align="center",out.width='80%'}
+dec_add=decompose(price.gs,type = "additive")
+
+#Trend
+F_T = 1-var(dec_add$random,na.rm = T)/
+  var(dec_add$trend+dec_add$random,na.rm = T)
+#Seasonal
+F_S = 1-var(dec_add$random,na.rm = T)/
+  var(dec_add$seasonal+dec_add$random,na.rm = T)
+
+autoplot(dec_add)
+print(F_T)
+print(F_S)
+
+```
+The  plot above illustrates the decomposition of the time series data into three components, namely trend, seasonal, and residual. The trend component indicates that the US gasoline prices exhibit an overall increasing trend over time, although there is no clear seasonality observed, the prices show an increase over the summer months and a decrease over the winter months. The residual component shows that there are random fluctuations present in the data. One of the advantages of using additive decomposition is that it helps in identifying and separating the underlying components of the time series, thus facilitating better understanding of trends and accurate forecasting. However, it should be noted that this method assumes that the trends and seasonal components are linear and that the residual component follows a normal distribution, which may not always be true for all datasets.
+
+Based on the calculations, the trend strength is 0.9397677, and the seasonality strength is 0.383217. Therefore, it can be concluded that the time series exhibits a strong increasing trend and a relatively weak seasonality.
+
+## STL Decomposition
+In the STL decomposition method, we use local polynomial regression is used to estimate both trend and seasonality. The seasonal component is allowed to vary over time, and the trend-cycle can be controlled by the user. 
+
+```{r ewfw32r,echo=FALSE,fig.align="center",out.width='80%'}
+price.gs%>%
+  stl(s.window = 3,t.window = 3,robust = T)%>%
+  autoplot()
+```
+Upon comparing the STL and classical decomposition, it was observed that the trend and seasonal components were similar. However, the remainder component differed due to variations in estimation. Generally, the STL decomposition is more robust to outliers and is capable of capturing non-linear trends and seasonality. 
+
+## Exponential Smoothening Methods
+
+The method of exponential smoothing is extensively used for forecasting time series data, and it encompasses three primary types of models: Simple Exponential Smoothing (SES), Holt's Linear Exponential Smoothing (Holt's), and Holt-Winters' Exponential Smoothing (HWES). To determine the most suitable model for the time series graph of the average price per gallon for regular gasoline (USD) plotted against dates in Mon-YY format, from January 2000 to December 2019, we can fit each model to the data and compare their respective performances.
+
+```{r qdk,echo=FALSE,fig.align='center',out.width="80%"}
+# SES Model
+m.ses<-ses(price.gs)
+
+# Holt's Model
+m.holt<-holt(price.gs)
+
+# HWES model
+m.hwes<-hw(price.gs)
+
+# Plot Forecast,
+autoplot(price.gs)+
+  autolayer(fitted(m.ses),series = "SES")+
+  autolayer(fitted(m.holt),series = "Holt's")+
+  autolayer(fitted(m.hwes),series = "HWES")+
+  xlab("Year")+ylab("Price (USD)")+
+  ggtitle("Forecast of US Gasoline Price")+
+  scale_color_manual(values = 
+                       c("red","green","blue"))+
+  guides(colours=guide_legend(title = "Model"))+
+  theme_bw()
+```
+
+
+```{r wqqw,echo=FALSE, fig.align='center',out.width="80%"}
+accuracy(m.ses)
+accuracy(m.holt)
+accuracy(m.hwes)
+```
+The accuracy of the aforementioned model can be measured using different criteria, but in this case, the Root Mean Squared Error (RMSE) will be used to determine the best model. The model with the smallest RMSE value is considered the best model. Based on an RMSE of 0.1607, it can be concluded that the Holt-Winters' Exponential Smoothing (HWES) model is the most suitable for predicting the US gasoline price.
+
+## In-Sample Predictions Accuracy
+```{r}
+price.gs.snaive = snaive(price.gs,12)
+price.gs.snaive.rmse=accuracy(price.gs.snaive)[2]
+price.gs.naive= naive(price.gs,12)
+price.gs.naive.rmse=accuracy(price.gs.naive)[2]
+price.gs.meanf = meanf(price.gs,12)
+price.gs.meanf.rmse=accuracy(price.gs.meanf)[2]
+
+price.gs.snaive.rmse
+price.gs.naive.rmse
+price.gs.meanf.rmse
+
+```
+Since there is a strong trend observed, the in-sample predictions' RMSE values suggest that the naive strategy would be suitable for future predictions.
+
+When comparing the RMSE values of Holt-Winters' Model and Naive Strategy, it was found that Holt-Winters' Model has a lower RMSE value, indicating that it is the better model for forecasting future values.
+
+
+## One Year Forecast of US Gasoline Price using HWES
+```{r feow,echo=FALSE, fig.align='center',out.width="80%"}
+fcast.hwes<-forecast(m.hwes,h=12)
+
+autoplot(price.gs,xlab="Year",ylab = "Gasoline Price (USD)",
+         main="One Year Forecast of US Gasoline Price Holt's Winters Model")+
+  autolayer(fitted(m.hwes),series = "Fitted Data")+
+  autolayer(m.hwes)+
+  autolayer(price.gs,series = "Historical Data")+
+  autolayer(fcast.hwes$upper[,2],lty="dashed",series="95% Confident Interval")+
+  autolayer(fcast.hwes$lower[,2],lty="dashed",series="95% Confident Interval")
+```
+## Conclusion
+
+Based on the analysis conducted on the time series data for the average price per gallon of regular gasoline in the US between January 2000 and December 2019, some important observations were made. Firstly, it was determined that the data displayed both trend and seasonality, which were identified using the additive decomposition and exponential smoothing methods. The additive decomposition method revealed that gasoline prices exhibited a clear upward trend over time, while the exponential smoothing models identified a decreasing trend in the more recent years. Furthermore, the seasonal component of the data showed that gasoline prices tend to be higher in summer months and lower in winter months. Secondly, after evaluating different forecasting models, the Holt-Winters exponential smoothing model was found to be the most appropriate model for forecasting future gasoline prices, based on its ability to fit the historical data accurately and its performance compared to other models. This model predicted that gasoline prices would continue to rise in the future, although at a slower pace than in the past.
